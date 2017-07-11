@@ -11,7 +11,6 @@ import android.os.AsyncTask;
 import android.support.annotation.Nullable;
 import android.support.v4.view.GestureDetectorCompat;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.Xml;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
@@ -31,6 +30,7 @@ import java.util.List;
  */
 
 public class MapView extends View {
+
     private static final String TAG = "LHC";
     private List<AreaItem> areaItems = new ArrayList<>();
     private Paint paint;
@@ -38,12 +38,15 @@ public class MapView extends View {
     private float scale = 1f;
     private GestureDetectorCompat gestureDetectorCompat;
     private ScaleGestureDetector scaleGestureDetector;
-    private int translateX;
-    private int translateY;
+    private float translateX;
+    private float translateY;
     private RectF mapRectF;
     private Paint.FontMetrics fontMetrics;
-    private int oldDis;
-    private int newDis;
+    private float oldScale;
+    private int width;
+    private int height;
+    private boolean isLoadFinish;
+    private boolean hasScale;
 
     public MapView(Context context) {
         this(context, null);
@@ -64,27 +67,29 @@ public class MapView extends View {
         paint.setTextSize(60);
         paint.setTextAlign(Paint.Align.CENTER);
         fontMetrics = paint.getFontMetrics();
-        new XmlParseTask(this).execute();
+        new XmlParseTask(this).execute(R.raw.china_map);
 
         scaleGestureDetector = new ScaleGestureDetector(context, new ScaleGestureDetector.OnScaleGestureListener() {
             @Override
             public boolean onScale(ScaleGestureDetector scaleGestureDetector) {
-                scale = scaleGestureDetector.getScaleFactor();
-                Log.d(TAG, "scale---->" + scale);
+                scale *= (scaleGestureDetector.getCurrentSpan() / oldScale);
+
                 if (scale < 1) {
                     scale = 1;
                 }
-                if (scale > 4) {
-                    scale = 4;
+
+                if (scale > 2) {
+                    scale = 2;
                 }
+                oldScale = scaleGestureDetector.getCurrentSpan();
+                hasScale = true;
                 postInvalidate();
-                return false;
+                return true;
             }
 
             @Override
             public boolean onScaleBegin(ScaleGestureDetector scaleGestureDetector) {
-                Log.d(TAG, "focusX----->" + scaleGestureDetector.getFocusX());
-                Log.d(TAG, "focusY----->" + scaleGestureDetector.getFocusY());
+                oldScale = scaleGestureDetector.getPreviousSpan();
                 return true;
             }
 
@@ -95,8 +100,66 @@ public class MapView extends View {
         });
 
         gestureDetectorCompat = new GestureDetectorCompat(context, new GestureDetector.SimpleOnGestureListener() {
+
             @Override
             public boolean onDown(MotionEvent e) {
+                return true;
+            }
+
+            @Override
+            public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+                //onScale执行后如果有单手移动会触发onScroll，屏蔽第一次事件防止地图闪到其他位置
+                if (hasScale) {
+                    hasScale = !hasScale;
+                    return false;
+                }
+
+                translateX -= distanceX;
+                translateY -= distanceY;
+
+                //边界碰撞检测，地图尺寸小于控件尺寸时不能移出控件，地图尺寸大于控件尺寸时只能挪出1/3
+                if (mapRectF.height() * scale < height && mapRectF.width() * scale < width) {
+                    //地图比屏幕小
+                    if (translateX < 0) {
+                        translateX = 0;
+                    }
+
+                    if (translateX + mapRectF.width() * scale > width) {
+                        translateX = width - mapRectF.width() * scale;
+                    }
+
+                    if (translateY < 0) {
+                        translateY = 0;
+                    }
+
+                    if (translateY + mapRectF.height() * scale > height) {
+                        translateY = height - mapRectF.height() * scale;
+                    }
+                } else if (mapRectF.width() * scale > width || mapRectF.height() * scale > height) {
+                    if (translateX + mapRectF.width() * scale * 2 / 3 > width) {
+                        translateX = width - mapRectF.width() * scale * 2 / 3;
+                    }
+
+                    if (translateX + mapRectF.width() * scale * 1 / 3 < 0) {
+                        translateX = -mapRectF.width() * scale * 1 / 3;
+                    }
+                    if (translateY + mapRectF.height() * scale * 2 / 3 > height) {
+                        translateY = height - mapRectF.height() * scale * 2 / 3;
+                    }
+
+                    if (translateY + mapRectF.height() * scale * 1 / 3 < 0) {
+                        translateY = -mapRectF.height() * scale * 1 / 3;
+                    }
+                }
+
+                postInvalidate();
+                return true;
+            }
+        });
+
+        gestureDetectorCompat.setOnDoubleTapListener(new GestureDetector.OnDoubleTapListener() {
+            @Override
+            public boolean onSingleTapConfirmed(MotionEvent e) {
                 int x = (int) e.getX();
                 int y = (int) e.getY();
                 AreaItem tmp = null;
@@ -109,31 +172,57 @@ public class MapView extends View {
 
                 if (tmp != null) {
                     selectItem = tmp;
+
+                    String detailId = selectItem.getDetailItemId();
+                    if (detailId != null && !"".equals(detailId)) {
+                        int id = getResources().getIdentifier(detailId, "raw", getContext().getPackageName());
+                        new XmlParseTask(MapView.this).execute(id);
+                    }
                     postInvalidate();
                 }
-                return true;
+                return false;
+            }
+
+            @Override
+            public boolean onDoubleTap(MotionEvent motionEvent) {
+                return false;
+            }
+
+            @Override
+            public boolean onDoubleTapEvent(MotionEvent motionEvent) {
+                return false;
             }
         });
+
+    }
+
+    @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+        width = w;
+        height = h;
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        canvas.save();
-        canvas.translate(translateX, translateY);
-        canvas.scale(scale, scale);
-        for (AreaItem item : areaItems) {
-            if (item != selectItem) {
-                item.draw(canvas, paint, false);
+        if (isLoadFinish) {
+            canvas.save();
+            canvas.translate(translateX, translateY);
+            canvas.scale(scale, scale);
+            for (AreaItem item : areaItems) {
+                if (item != selectItem) {
+                    item.draw(canvas, paint, false);
+                }
             }
-        }
 
-        if (selectItem != null) {
-            selectItem.draw(canvas, paint, true);
-        }
-        canvas.restore();
+            if (selectItem != null) {
+                selectItem.draw(canvas, paint, true);
+            }
+            canvas.restore();
 
-        drawSelectName(canvas);
+            drawSelectName(canvas);
+        }
     }
 
     private void drawSelectName(Canvas canvas) {
@@ -141,7 +230,7 @@ public class MapView extends View {
             canvas.save();
             paint.setColor(Color.GRAY);
             paint.setStyle(Paint.Style.FILL);
-            canvas.drawText(selectItem.getName(), getWidth() / 2, 100 + (fontMetrics.bottom - fontMetrics.top) / 2 - fontMetrics.bottom, paint);//TODO 总结文字居中公式
+            canvas.drawText(selectItem.getName(), width / 2, 100 + (fontMetrics.bottom - fontMetrics.top) / 2 - fontMetrics.bottom, paint);
             canvas.restore();
         }
     }
@@ -151,13 +240,12 @@ public class MapView extends View {
         int count = event.getPointerCount();
         if (count == 1) {
             return gestureDetectorCompat.onTouchEvent(event);
-
         } else {
             return scaleGestureDetector.onTouchEvent(event);
         }
     }
 
-    private class XmlParseTask extends AsyncTask<Void, Void, Void> {
+    private class XmlParseTask extends AsyncTask<Integer, Void, Void> {
 
         private WeakReference<MapView> mapViewWeakReference;
         private Resources res;
@@ -168,21 +256,19 @@ public class MapView extends View {
         }
 
         @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-        }
-
-        @Override
-        protected Void doInBackground(Void... voids) {
-            long time = System.currentTimeMillis();
+        protected Void doInBackground(Integer... integers) {
             InputStream inputStream = null;
+            int id = integers[0];
             try {
-                inputStream = res.openRawResource(R.raw.china_map);
+                inputStream = res.openRawResource(id);
                 XmlPullParser parser = Xml.newPullParser();
                 parser.setInput(inputStream, "UTF-8");
                 int event = parser.getEventType();
                 AreaItem item = null;
                 SvgPathParser svgPathParser = new SvgPathParser();
+
+                mapViewWeakReference.get().areaItems.clear();
+
                 while (event != XmlPullParser.END_DOCUMENT) {
                     switch (event) {
                         case XmlPullParser.START_TAG:
@@ -211,7 +297,6 @@ public class MapView extends View {
 
                 tmpPath.computeBounds(mapRectF, true);
 
-                Log.d(TAG, "耗时：" + (System.currentTimeMillis() - time));
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -223,8 +308,10 @@ public class MapView extends View {
         protected void onPostExecute(Void aVoid) {
             super.onPostExecute(aVoid);
             if (mapViewWeakReference.get() != null) {
-                translateY = (int) (getHeight() / 2 - mapRectF.height() / 2);
-                translateX = (int) (getWidth() / 2 - mapRectF.width() / 2);
+                mapViewWeakReference.get().selectItem = null;
+                translateY = (int) (height / 2 - mapRectF.height() / 2);
+                translateX = (int) (width / 2 - mapRectF.width() / 2);
+                isLoadFinish = true;
                 mapViewWeakReference.get().postInvalidate();
             }
         }

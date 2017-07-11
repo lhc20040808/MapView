@@ -7,6 +7,8 @@ import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Region;
 
+import java.util.Arrays;
+
 /**
  * 作者：lhc
  * 时间：2017/7/11.
@@ -22,6 +24,8 @@ public class AreaItem {
      */
     private Path path;
 
+    private String detailItemId;
+
     private Region region;
 
     public AreaItem(Path path) {
@@ -29,7 +33,16 @@ public class AreaItem {
     }
 
     public void setName(String name) {
-        this.name = name;
+        if (name == null) {
+            this.name = "";
+            this.detailItemId = "";
+
+        } else {
+            String[] strs = name.split("\\|");
+            String[] result = Arrays.copyOf(strs, 2);
+            this.name = result[0];
+            this.detailItemId = result[1];
+        }
     }
 
     public void setPath(Path path) {
@@ -42,6 +55,10 @@ public class AreaItem {
 
     public Path getPath() {
         return path;
+    }
+
+    public String getDetailItemId() {
+        return detailItemId;
     }
 
     public void draw(Canvas canvas, Paint paint, boolean isSelect) {
