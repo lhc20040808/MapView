@@ -30,8 +30,8 @@ import java.util.List;
  */
 
 public class MapView extends View {
-
     private static final String TAG = "LHC";
+    private static final int MAP_INIT_PADDING = 50;
     private List<AreaItem> areaItems = new ArrayList<>();
     private Paint paint;
     private AreaItem selectItem;
@@ -315,10 +315,10 @@ public class MapView extends View {
             super.onPostExecute(aVoid);
             if (mapViewWeakReference.get() != null) {
                 mapViewWeakReference.get().selectItem = null;
-                translateY = (int) (height / 2 - mapRectF.height() / 2);
-                translateX = (int) (width / 2 - mapRectF.width() / 2);
+                scale = (mapViewWeakReference.get().getWidth() - MAP_INIT_PADDING * 2) / mapRectF.width();
+                translateY = (int) (height / 2 - mapRectF.height() * scale / 2);
+                translateX = (int) (width / 2 - mapRectF.width() * scale / 2);
                 isLoadFinish = true;
-                scale = 1;
                 mapViewWeakReference.get().postInvalidate();
             }
         }

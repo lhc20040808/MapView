@@ -70,7 +70,7 @@ public class AreaItem {
             drawItemStroke(canvas, paint);
         }
 
-        drawName(canvas, paint);
+//        drawName(canvas, paint);
     }
 
     private void drawName(Canvas canvas, Paint paint) {
