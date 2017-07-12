@@ -78,8 +78,8 @@ public class MapView extends View {
                     scale = 1;
                 }
 
-                if (scale > 2) {
-                    scale = 2;
+                if (scale > 4) {
+                    scale = 4;
                 }
                 oldScale = scaleGestureDetector.getCurrentSpan();
                 hasScale = true;
@@ -136,19 +136,19 @@ public class MapView extends View {
                         translateY = height - mapRectF.height() * scale;
                     }
                 } else if (mapRectF.width() * scale > width || mapRectF.height() * scale > height) {
-                    if (translateX + mapRectF.width() * scale * 2 / 3 > width) {
-                        translateX = width - mapRectF.width() * scale * 2 / 3;
+                    if (translateX + mapRectF.width() * scale * 1 / 3 > width) {
+                        translateX = width - mapRectF.width() * scale * 1 / 3;
                     }
 
-                    if (translateX + mapRectF.width() * scale * 1 / 3 < 0) {
-                        translateX = -mapRectF.width() * scale * 1 / 3;
+                    if (translateX + mapRectF.width() * scale * 2 / 3 < 0) {
+                        translateX = -mapRectF.width() * scale * 2 / 3;
                     }
-                    if (translateY + mapRectF.height() * scale * 2 / 3 > height) {
-                        translateY = height - mapRectF.height() * scale * 2 / 3;
+                    if (translateY + mapRectF.height() * scale * 1 / 3 > height) {
+                        translateY = height - mapRectF.height() * scale * 1 / 3;
                     }
 
-                    if (translateY + mapRectF.height() * scale * 1 / 3 < 0) {
-                        translateY = -mapRectF.height() * scale * 1 / 3;
+                    if (translateY + mapRectF.height() * scale * 2 / 3 < 0) {
+                        translateY = -mapRectF.height() * scale * 2 / 3;
                     }
                 }
 
@@ -256,6 +256,12 @@ public class MapView extends View {
         }
 
         @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            isLoadFinish = false;
+        }
+
+        @Override
         protected Void doInBackground(Integer... integers) {
             InputStream inputStream = null;
             int id = integers[0];
@@ -312,6 +318,7 @@ public class MapView extends View {
                 translateY = (int) (height / 2 - mapRectF.height() / 2);
                 translateX = (int) (width / 2 - mapRectF.width() / 2);
                 isLoadFinish = true;
+                scale = 1;
                 mapViewWeakReference.get().postInvalidate();
             }
         }

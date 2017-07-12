@@ -4,6 +4,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Region;
 
@@ -68,6 +69,22 @@ public class AreaItem {
         } else {
             drawItemStroke(canvas, paint);
         }
+
+        drawName(canvas, paint);
+    }
+
+    private void drawName(Canvas canvas, Paint paint) {
+        if (region == null) {
+            initRegion();
+        }
+        //TODO 思考名字无法居中的问题
+        Rect rect = region.getBounds();
+        paint.setTextAlign(Paint.Align.CENTER);
+        paint.setTextSize(15);
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(Color.parseColor("#303030"));
+        Paint.FontMetrics fm = paint.getFontMetrics();
+        canvas.drawText(name, rect.centerX(), rect.centerY() + (fm.bottom - fm.top) / 2 - fm.bottom, paint);
     }
 
     private void drawItemFill(Canvas canvas, Paint paint) {
@@ -95,12 +112,16 @@ public class AreaItem {
      */
     public boolean isTouch(int x, int y) {
         if (region == null) {
-            RectF rectF = new RectF();
-            path.computeBounds(rectF, true);
-            region = new Region();
-            region.setPath(path, new Region((int) rectF.left, (int) rectF.top, (int) rectF.right, (int) rectF.bottom));
+            initRegion();
         }
         return region.contains(x, y);
+    }
+
+    private void initRegion() {
+        RectF rectF = new RectF();
+        path.computeBounds(rectF, true);
+        region = new Region();
+        region.setPath(path, new Region((int) rectF.left, (int) rectF.top, (int) rectF.right, (int) rectF.bottom));
     }
 
 }
